@@ -1,0 +1,23 @@
+###############################
+# 场景：网络底座 + 计算/负载均衡，跳过 RDS 与 TOS
+# 适用：账号未开通 RDS / TOS 服务，或需先验证计算与负载均衡链路
+###############################
+region       = "cn-beijing"
+project_name = "default"
+name_prefix  = "tf-clb"
+
+vpc_cidr           = "10.1.0.0/16"
+availability_zones = ["cn-beijing-a", "cn-beijing-b"]
+subnet_cidrs       = ["10.1.2.0/24", "10.1.3.0/24"]
+
+enable_compute     = true
+image_id           = "image-ydf193g9cqb6uoeqqqj8" # 按目标可用区替换
+instance_type      = "ecs.g3i.large"
+web_instance_count = 2
+app_instance_count = 2
+
+enable_load_balancer = true
+
+# 跳过数据层
+enable_rds = false
+enable_tos = false
