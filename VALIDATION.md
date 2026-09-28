@@ -71,7 +71,10 @@ TOS 读写能力可在实际部署后通过 TOS CLI 或 SDK 进一步验证。
 - TOS Bucket 如果已写入对象或历史版本，需要先清空后再销毁。
 - 开启版本控制的 TOS Bucket 删除可能较慢，需要预留等待时间。
 - RDS 白名单解绑存在服务端异步延迟，首次销毁如提示白名单仍被实例占用，等待数分钟后重试 `terraform destroy` 即可。
-- 安全组创建、NLB 监听器删除等云服务操作偶发冲突或瞬时失败时，通常可通过重试恢复。
+- 安全组创建、NLB 监听器删除等云服务操作偶发冲突或瞬时失败时，通常可通过重试恢复。具体表现为：
+  - 创建阶段安全组偶发 `InvalidOperation.Conflict`（Cloud Control API 瞬时/幂等冲突），可能导致依赖安全组的 ECS、NLB 连锁未创建；直接重跑 `terraform apply` 即可补齐，无需改代码。
+  - 销毁阶段白名单 `AllowListIdInuse`（服务端异步解绑延迟）、NLB 监听器 `GeneralServiceException: delete failed`（瞬时故障），等待数分钟后重试对应命令即可收敛。
+- 鉴于创建阶段存在上述偶发冲突，建议 apply 时使用并发度 `-parallelism=2`，降低资源操作相互冲突的概率。
 
 ## 验证边界
 

@@ -272,8 +272,10 @@ cp terraform.tfvars.example terraform.tfvars
 ```bash
 terraform init
 terraform plan -out=tfplan
-terraform apply -parallelism=1 tfplan
+terraform apply -parallelism=2 tfplan
 ```
+
+> 说明：创建过程中安全组等资源偶发 `InvalidOperation.Conflict`（Cloud Control API 瞬时/幂等冲突，非代码问题），建议创建时使用并发度 `-parallelism=2`。若首轮 apply 中途因该冲突失败，直接重跑 `terraform apply` 即可补齐剩余资源，无需修改代码。
 
 **仅部署网络底座：**
 
@@ -292,7 +294,7 @@ terraform apply tfplan
 ```bash
 cp examples/compute-only.tfvars.example terraform.tfvars
 terraform plan -out=tfplan
-terraform apply -parallelism=1 tfplan
+terraform apply -parallelism=2 tfplan
 ```
 
 **按需关闭付费资源：**

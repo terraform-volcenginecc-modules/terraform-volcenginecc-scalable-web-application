@@ -62,6 +62,7 @@ variable "enable_compute" {
 variable "image_id" {
   type        = string
   description = "ECS 实例使用的镜像 ID（如 image-xxx）。volcenginecc Provider 暂不提供镜像数据源，请通过控制台或 API 查询后填入"
+  default     = "image-ydf193g9cqb6uoeqqqj8"
 }
 
 variable "instance_type" {
@@ -86,7 +87,7 @@ variable "ecs_password" {
   type        = string
   description = "ECS 登录密码，建议通过环境变量 TF_VAR_ecs_password 注入"
   sensitive   = true
-  default     = ""
+  default     = "ReplaceMe@12345"
 }
 
 variable "web_instance_count" {
@@ -189,7 +190,7 @@ variable "rds_super_account_password" {
   type        = string
   description = "RDS 高权限账号密码，建议通过环境变量 TF_VAR_rds_super_account_password 注入"
   sensitive   = true
-  default     = ""
+  default     = "ReplaceMe@12345"
 }
 
 variable "rds_database_name" {
