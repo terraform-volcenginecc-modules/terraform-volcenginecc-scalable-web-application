@@ -4,6 +4,7 @@
 *.tfplan
 tfplan
 *.tfvars
+!terraform.tfvars
 !*.tfvars.example
 *.auto.tfvars.json
 .env*

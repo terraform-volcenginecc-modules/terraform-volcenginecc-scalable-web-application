@@ -150,7 +150,7 @@ flowchart LR
 ├── providers.tf                    # volcenginecc Provider 配置
 ├── versions.tf                     # Terraform 与 Provider 版本约束
 ├── locals.tf                       # 通用标签和 TOS 桶名等局部变量
-├── terraform.tfvars.example        # 示例变量文件
+├── terraform.tfvars                # 默认变量文件
 ├── examples/                       # 场景化 tfvars 示例
 │   ├── compute-only.tfvars.example
 │   └── network-only.tfvars.example
@@ -245,10 +245,10 @@ export TF_VAR_ecs_password="<your_ecs_password>"
 export TF_VAR_rds_super_account_password="<your_rds_password>"
 ```
 
-复制示例变量文件并按需修改：
+按需修改默认变量文件：
 
 ```bash
-cp terraform.tfvars.example terraform.tfvars
+vim terraform.tfvars
 ```
 
 重点确认以下参数：

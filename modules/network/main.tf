@@ -80,4 +80,6 @@ resource "volcenginecc_vpc_security_group" "main" {
   ingress_permissions = local.ingress_permissions
 
   tags = var.tags_list
+
+  depends_on = [volcenginecc_vpc_subnet.this]
 }
