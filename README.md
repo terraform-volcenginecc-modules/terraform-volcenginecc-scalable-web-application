@@ -287,7 +287,7 @@ InfraManager 是火山引擎提供的 Terraform 托管工作台，更多产品�
 
 本工程执行前需要完成以下准备：
 
-1. 安装 Terraform `>= 1.0.7`。
+1. 安装 Terraform `>= 1.5.0`。
 2. 确保能够访问 Terraform Registry；Provider 版本约束为 `~> 0.0.70`。
 3. 开通火山引擎 VPC、ECS、CLB/NLB、RDS MySQL 和 TOS 服务。
 4. 在 NLB 控制台完成首次授权，创建服务关联角色 `ServiceRoleForLoadBalancer`。
