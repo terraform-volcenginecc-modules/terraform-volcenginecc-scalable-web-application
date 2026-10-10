@@ -1,0 +1,20 @@
+###############################
+# 场景：仅创建网络底座（VPC / Subnet / SecurityGroup）
+# 适用：账号余额不足或所选实例规格不可用时，先验证网络与权限链路
+###############################
+region       = "cn-beijing"
+project_name = "default"
+name_prefix  = "tf-clb"
+
+vpc_cidr           = "10.1.0.0/16"
+availability_zones = ["cn-beijing-a", "cn-beijing-b"]
+subnet_cidrs       = ["10.1.2.0/24", "10.1.3.0/24"]
+
+# 关闭所有付费层，仅保留网络底座
+enable_compute       = false
+enable_load_balancer = false
+enable_rds           = false
+enable_tos           = false
+
+# 网络底座不使用 image_id，但变量为必填，占位即可（不会被引用）
+image_id = "image-placeholder"
