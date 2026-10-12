@@ -14,3 +14,4 @@ tfplan
 # 验证过程产物（作为人工验证证据本地保留，不入交付/版本库）
 *.log
 tfplan-*
+.terraform.lock.hcl
