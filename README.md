@@ -1,29 +1,29 @@
-# 高可用、安全可扩展的 Web 应用部署
+# Highly Available, Secure and Scalable Web Application Deployment
 
-在火山引擎上部署一套高可用、可扩展的三层 Web 应用基础设施，覆盖网络、计算、负载均衡、数据库和对象存储等核心资源。该方案采用经典三层架构，部署于同一 VPC 内的多可用区子网中，并通过统一安全组管控东西向与南北向流量。
+Deploy a highly available, scalable three-tier web application infrastructure on Volcengine, covering core resources such as networking, compute, load balancing, database and object storage. This solution adopts the classic three-tier architecture, deployed across multi-AZ subnets within a single VPC, and controls both east-west and north-south traffic through a unified security group.
 
-## 1. 业务背景
+## 1. Business Background
 
-企业 Web 应用在生产环境落地时，通常会遇到以下问题：
+When enterprise web applications are deployed to production, they usually face the following problems:
 
-- **部署链路长**：VPC、子网、安全组、ECS、负载均衡、数据库、对象存储等资源需要跨多个控制台手工配置，容易遗漏步骤。
-- **环境一致性差**：测试、预发、生产环境如果依赖人工搭建，参数和拓扑容易不一致，后续排障成本高。
-- **高可用要求高**：公网入口、应用服务器和数据库都需要具备跨可用区容灾能力，避免单点故障影响业务访问。
-- **安全边界复杂**：互联网入口、Web 层、App 层和数据层访问路径不同，需要通过安全组、私网负载均衡和 RDS 白名单进行隔离。
-- **扩展和回收成本高**：业务高峰期需要快速扩容，验证结束后也需要可靠销毁资源，降低闲置成本。
+- **Long deployment chain**: Resources such as VPC, subnets, security groups, ECS, load balancers, database and object storage need to be manually configured across multiple consoles, which makes it easy to miss steps.
+- **Poor environment consistency**: If test, staging and production environments rely on manual provisioning, their parameters and topology are prone to drift, and subsequent troubleshooting becomes costly.
+- **High availability requirements**: The public ingress point, application servers and database all need cross-AZ disaster recovery to avoid a single point of failure impacting business access.
+- **Complex security boundary**: The access paths of the internet ingress, web tier, app tier and data tier differ, and need to be isolated through security groups, private load balancers and the RDS allow list.
+- **High scaling and teardown cost**: Business peaks require rapid scale-out, and after validation resources must be reliably destroyed to reduce idle cost.
 
-本方案通过 Terraform 将上述基础设施标准化、模块化，帮助用户快速完成三层 Web 应用的基础环境交付。
+This solution standardizes and modularizes the above infrastructure through Terraform, helping users quickly deliver the foundation of a three-tier web application.
 
-## 2. 方案概述
+## 2. Solution Overview
 
-整体采用经典三层架构：
+The overall architecture follows the classic three-tier design:
 
-- **接入层**：公网 NLB 承接互联网流量，并转发到 Web 层 ECS。
-- **Web 层**：多台 Web ECS 跨可用区部署，处理前端访问请求。
-- **内部分发层**：私网 NLB 在 VPC 内部将 Web 层请求分发到 App 层。
-- **App 层**：多台 App ECS 跨可用区部署，处理核心业务逻辑。
-- **数据层**：RDS MySQL 主备实例承载结构化数据，TOS 桶存储非结构化数据。
-- **安全控制**：统一安全组控制 ECS 入站访问，RDS 白名单默认放行 VPC 网段。
+- **Ingress tier**: The public NLB receives internet traffic and forwards it to the web tier ECS.
+- **Web tier**: Multiple web ECS instances are deployed across AZs to handle frontend access requests.
+- **Internal distribution tier**: The private NLB distributes requests from the web tier to the app tier inside the VPC.
+- **App tier**: Multiple app ECS instances are deployed across AZs to handle core business logic.
+- **Data tier**: RDS MySQL primary-standby instances carry structured data, and Torch Object Storage (TOS) buckets store unstructured data.
+- **Security control**: A unified security group controls inbound access to ECS, and the RDS allow list allows the VPC CIDR by default.
 
 ```mermaid
 flowchart LR
@@ -34,49 +34,49 @@ flowchart LR
     classDef data fill:#FFF1F0,stroke:#F5222D,color:#820014,stroke-width:1px;
     classDef note fill:#F5F5F5,stroke:#8C8C8C,color:#262626,stroke-dasharray: 4 3;
 
-    Client["互联网用户<br/>Browser / API Client"]:::user
+    Client["Internet users<br/>Browser / API Client"]:::user
 
     subgraph VPC["VPC<br/>10.1.0.0/16"]
         direction LR
 
-        subgraph Net["网络与安全"]
+        subgraph Net["Network and security"]
             direction TB
-            SG["Security Group<br/>SSH / Web / App 端口"]:::network
+            SG["Security group<br/>SSH / web / app ports"]:::network
             SubnetA["Subnet A<br/>cn-beijing-a<br/>10.1.2.0/24"]:::network
             SubnetB["Subnet B<br/>cn-beijing-b<br/>10.1.3.0/24"]:::network
         end
 
-        subgraph Ingress["接入层"]
+        subgraph Ingress["Ingress tier"]
             direction TB
-            PublicNLB["公网 NLB<br/>TCP :80<br/>Cross-Zone Enabled"]:::lb
+            PublicNLB["Public NLB<br/>TCP :80<br/>Cross-zone enabled"]:::lb
         end
 
-        subgraph WebTier["Web 层"]
+        subgraph WebTier["Web tier"]
             direction TB
             WebA["Web ECS 01<br/>AZ A"]:::compute
             WebB["Web ECS 02<br/>AZ B"]:::compute
         end
 
-        subgraph InternalLB["内部分发层"]
+        subgraph InternalLB["Internal distribution tier"]
             direction TB
-            PrivateNLB["私网 NLB<br/>TCP :8080<br/>VPC 内访问"]:::lb
+            PrivateNLB["Private NLB<br/>TCP :8080<br/>VPC-only access"]:::lb
         end
 
-        subgraph AppTier["App 层"]
+        subgraph AppTier["App tier"]
             direction TB
             AppA["App ECS 01<br/>AZ A"]:::compute
             AppB["App ECS 02<br/>AZ B"]:::compute
         end
 
-        subgraph Database["数据库层"]
+        subgraph Database["Data tier"]
             direction TB
-            RDS["RDS MySQL<br/>DoubleNode 主备"]:::data
-            DB["业务数据库<br/>tf_db"]:::data
-            AllowList["RDS Allow List<br/>放行 VPC CIDR"]:::data
+            RDS["RDS MySQL<br/>primary/standby"]:::data
+            DB["Business database<br/>tf_db"]:::data
+            AllowList["RDS allow list<br/>allows VPC CIDR"]:::data
         end
     end
 
-    TOS["TOS 桶<br/>对象 / 图片 / 日志"]:::data
+    TOS["TOS bucket<br/>objects / images / logs"]:::data
 
     Client --> PublicNLB
     PublicNLB --> WebA
@@ -102,69 +102,69 @@ flowchart LR
     SubnetB -.-> WebB
     SubnetB -.-> AppB
 
-    PublicNLB -.-> N1["公网入口<br/>健康检查 / 跨 AZ 转发"]:::note
-    PrivateNLB -.-> N2["内部调用<br/>Web 到 App 解耦"]:::note
-    RDS -.-> N3["主备容灾<br/>结构化数据持久化"]:::note
-    TOS -.-> N4["弹性存储<br/>非结构化数据"]:::note
+    PublicNLB -.-> N1["Public ingress<br/>health checks / cross-AZ forwarding"]:::note
+    PrivateNLB -.-> N2["Internal calls<br/>decouples web from app"]:::note
+    RDS -.-> N3["Primary/standby DR<br/>durable structured data"]:::note
+    TOS -.-> N4["Elastic storage<br/>unstructured data"]:::note
 ```
 
-## 3. IaC 设计
+## 3. IaC Design
 
-### 3.1 资源清单
+### 3.1 Resource Inventory
 
-当前 `terraform.tfvars` 开启全部模块时会创建 18 项资源。资源数量会随子网、ECS 数量和功能开关变化：
+When all modules are enabled in the current `terraform.tfvars`, 18 resources are created. The resource count varies with the number of subnets, ECS instances and feature switches:
 
-| Terraform 资源 | 用途 |
+| Terraform resource | Purpose |
 | --- | --- |
-| `volcenginecc_vpc_vpc` | 创建业务 VPC，提供隔离的网络空间 |
-| `volcenginecc_vpc_subnet` × `length(subnet_cidrs)`，当前为 2 | 创建跨可用区子网，承载 ECS、NLB 和 RDS |
-| `volcenginecc_vpc_security_group` | 创建统一安全组，控制 SSH、Web 和 App 端口访问 |
-| `volcenginecc_ecs_instance`（Web）× `web_instance_count`，当前为 2 | 启用计算模块时创建 Web 层 ECS，接收公网 NLB 转发的流量 |
-| `volcenginecc_ecs_instance`（App）× `app_instance_count`，当前为 2 | 启用计算模块时创建 App 层 ECS，处理业务逻辑并访问数据层 |
-| `volcenginecc_clb_nlb`（internet） | 同时启用计算和负载均衡模块时创建公网 NLB |
-| `volcenginecc_clb_nlb_server_group`（web） | 创建 Web 后端服务器组，绑定 Web ECS |
-| `volcenginecc_clb_nlb_listener`（internet） | 创建公网 NLB 监听器，当前监听 TCP 80 |
-| `volcenginecc_clb_nlb`（intranet） | 同时启用计算和负载均衡模块时创建私网 NLB |
-| `volcenginecc_clb_nlb_server_group`（app） | 创建 App 后端服务器组，绑定 App ECS |
-| `volcenginecc_clb_nlb_listener`（intranet） | 创建私网 NLB 监听器，当前监听 TCP 8080 |
-| `volcenginecc_rdsmysql_instance` | 启用 RDS 模块时创建双节点 RDS MySQL 实例 |
-| `volcenginecc_rdsmysql_allow_list` | 启用 RDS 模块时创建白名单，默认放行 VPC 网段 |
-| `volcenginecc_rdsmysql_database` | 启用 RDS 模块时创建业务数据库并授权高权限账号读写 |
-| `volcenginecc_tos_bucket` | 启用 TOS 模块时创建对象存储桶，用于非结构化数据 |
+| `volcenginecc_vpc_vpc` | Creates the business VPC and provides an isolated network space |
+| `volcenginecc_vpc_subnet` × `length(subnet_cidrs)`, currently 2 | Creates cross-AZ subnets to carry ECS, NLB and RDS |
+| `volcenginecc_vpc_security_group` | Creates a unified security group to control SSH, web and app port access |
+| `volcenginecc_ecs_instance` (Web) × `web_instance_count`, currently 2 | Creates web tier ECS when the compute module is enabled, receiving traffic forwarded by the public NLB |
+| `volcenginecc_ecs_instance` (App) × `app_instance_count`, currently 2 | Creates app tier ECS when the compute module is enabled, handling business logic and accessing the data tier |
+| `volcenginecc_clb_nlb` (internet) | Creates the public NLB when both compute and load balancer modules are enabled |
+| `volcenginecc_clb_nlb_server_group` (web) | Creates the web backend server group and binds web ECS |
+| `volcenginecc_clb_nlb_listener` (internet) | Creates the public NLB listener, currently listening on TCP 80 |
+| `volcenginecc_clb_nlb` (intranet) | Creates the private NLB when both compute and load balancer modules are enabled |
+| `volcenginecc_clb_nlb_server_group` (app) | Creates the app backend server group and binds app ECS |
+| `volcenginecc_clb_nlb_listener` (intranet) | Creates the private NLB listener, currently listening on TCP 8080 |
+| `volcenginecc_rdsmysql_instance` | Creates a two-node RDS MySQL instance when the RDS module is enabled |
+| `volcenginecc_rdsmysql_allow_list` | Creates an allow list when the RDS module is enabled, allowing the VPC CIDR by default |
+| `volcenginecc_rdsmysql_database` | Creates a business database and grants read/write to the privileged account when the RDS module is enabled |
+| `volcenginecc_tos_bucket` | Creates an object storage bucket for unstructured data when the TOS module is enabled |
 
-说明：
+Notes:
 
-- Web 和 App ECS 数量由 `web_instance_count`、`app_instance_count` 控制，默认各 2 台。
-- 子网数量由 `availability_zones` 和 `subnet_cidrs` 控制，默认 2 个可用区。
-- RDS 白名单在 `allow_list_cidrs` 非空时创建；根模块默认会放行当前 VPC CIDR。
+- The number of web and app ECS instances is controlled by `web_instance_count` and `app_instance_count`, defaulting to 2 each.
+- The number of subnets is controlled by `availability_zones` and `subnet_cidrs`, defaulting to 2 AZs.
+- The RDS allow list is created only when `allow_list_cidrs` is non-empty; the root module allows the current VPC CIDR by default.
 
-### 3.2 工程结构
+### 3.2 Project Structure
 
-工程采用模块化设计，根模块负责编排，各子模块封装具体资源：
+The project is modular: the root module handles orchestration, and each submodule encapsulates specific resources:
 
 ```text
 .
-├── main.tf                         # 根模块编排，按依赖关系调用各子模块
-├── variables.tf                    # 全局变量定义，包括地域、规格、开关和密码变量
-├── outputs.tf                      # 输出关键资源 ID、地址和名称
-├── providers.tf                    # volcenginecc Provider 配置
-├── versions.tf                     # Terraform 与 Provider 版本约束
-├── locals.tf                       # 通用标签和 TOS 桶名等局部变量
-├── terraform.tfvars                # 默认变量文件
-├── examples/                       # 场景化 tfvars 示例
+├── main.tf                         # Root module orchestration; invokes submodules in dependency order
+├── variables.tf                    # Global variable definitions, including region, specs, switches and passwords
+├── outputs.tf                      # Outputs key resource IDs, addresses and names
+├── providers.tf                    # volcenginecc provider configuration
+├── versions.tf                     # Terraform and provider version constraints
+├── locals.tf                       # Local values such as common tags and the TOS bucket name
+├── terraform.tfvars                # Default variable file
+├── examples/                       # Scenario-based tfvars examples
 │   ├── compute-only.tfvars.example
 │   └── network-only.tfvars.example
 └── modules/
-    ├── network/                    # VPC、Subnet、Security Group
-    ├── compute/                    # Web 和 App ECS
-    ├── load_balancer/              # 公网和私网 NLB、服务器组、监听器
-    ├── database/                   # RDS MySQL、数据库、白名单
-    └── storage/                    # TOS 桶
+    ├── network/                    # VPC, subnets and security group
+    ├── compute/                    # Web and app ECS instances
+    ├── load_balancer/              # Public and private NLBs, server groups and listeners
+    ├── database/                   # RDS MySQL, databases and allow list
+    └── storage/                    # TOS bucket
 ```
 
-### 3.3 核心代码示例
+### 3.3 Core Code Examples
 
-根模块通过 `enable_*` 开关控制各能力模块是否启用，以下为关键编排逻辑节选：
+The root module controls whether each capability module is enabled through `enable_*` switches. The following is an excerpt of the key orchestration logic:
 
 ```hcl
 module "network" {
@@ -201,7 +201,7 @@ module "load_balancer" {
 }
 ```
 
-ECS 模块通过 `count.index % length(subnet_ids)` 将实例均匀分布到多个可用区：
+The ECS module distributes instances evenly across AZs through `count.index % length(subnet_ids)`:
 
 ```hcl
 resource "volcenginecc_ecs_instance" "web" {
@@ -217,85 +217,85 @@ resource "volcenginecc_ecs_instance" "web" {
 }
 ```
 
-## 4. 使用说明
+## 4. Usage
 
-本工程支持通过 InfraManager 在云上一键部署，也支持下载模板后在本地运行。推荐使用云上部署方式，无需自行准备 Terraform 运行环境，只需在平台填写参数即可完成资源创建和托管。
+This project supports both one-click cloud deployment through InfraManager and local execution after downloading the template. Cloud deployment is recommended: no local Terraform runtime is needed, and resource creation and hosting are completed simply by filling in parameters on the platform.
 
-### 4.1 云上部署
+### 4.1 Cloud Deployment
 
-InfraManager 是火山引擎提供的 Terraform 托管工作台，更多产品介绍参见 [InfraManager 产品介绍](https://docs.volcengine.com/docs/infrastructure-management/product-introduction?lang=zh)。
+InfraManager is a managed Terraform workbench provided by Volcengine. For more product information, see [InfraManager Product Introduction](https://docs.volcengine.com/docs/infrastructure-management/product-introduction?lang=en).
 
-#### 4.1.1 准备权限
+#### 4.1.1 Prepare Permissions
 
-部署身份需要具备以下服务的资源创建、查询、更新、删除及标签管理权限：
+The deployment identity must have create, read, update, delete and tag-management permissions for the following services:
 
-- VPC、子网和安全组
-- ECS 实例及系统盘
-- NLB 实例、服务器组和监听器
-- RDS MySQL 实例、白名单和数据库
-- TOS 桶
+- VPC, subnets and security groups
+- ECS instances and system volumes
+- NLB instances, server groups and listeners
+- RDS MySQL instances, allow lists and databases
+- TOS buckets
 
-首次使用 NLB 时，请先按控制台提示完成服务授权。部署前还需确认账号余额、服务配额以及目标可用区的 ECS 和 RDS 规格库存。建议配置最小权限的 IAM 角色作为资源栈执行角色，不要在模板参数中填写 AK/SK。
+When using NLB for the first time, complete the service authorization prompted by the console. Before deployment, also confirm the account balance, service quotas, and ECS and RDS instance-type inventory in the target AZs. It is recommended to configure a least-privilege IAM role as the resource stack execution role, and do not fill in AK/SK in the template parameters.
 
-#### 4.1.2 选择模板
+#### 4.1.2 Select a Template
 
-打开 [InfraManager 控制台](https://console.volcengine.com/iac)，进入 **模板管理 > 公开模板**，搜索“高可用、安全可扩展的 Web 应用部署”。
+Open the [InfraManager Console](https://console.volcengine.com/iac), go to **Template Management > Public Templates**, and search for the published template name shown in the Chinese console: `高可用、安全可扩展的 Web 应用部署` (Highly Available, Secure and Scalable Web Application Deployment). Use the Chinese string as the search term.
 
-#### 4.1.3 创建资源栈
+#### 4.1.3 Create a Resource Stack
 
-选择模板并点击 **创建资源栈**，根据实际需求填写资源栈信息和模板参数。创建并检查执行计划，确认变更符合预期后，点击 **执行部署**。
+Select the template and click **Create Resource Stack**. Fill in the resource stack information and template parameters according to your actual needs. Create and review the execution plan; after confirming the changes match expectations, click **Execute Deployment**.
 
-创建前重点确认：
+Key items to confirm before creation:
 
-- 地域、项目、名称前缀、可用区与子网网段
-- ECS 镜像、规格、数量、系统盘和服务端口
-- 公网和私网 NLB 监听端口、跨可用区和会话保持设置
-- RDS 版本、规格、容量、数据库名和额外白名单
-- TOS 桶名和版本控制状态
-- ECS 与 RDS 密码必须使用平台的敏感参数输入，并覆盖示例默认值
+- Region, project, name prefix, AZs and subnet CIDRs
+- ECS image, instance type, count, system volume and service ports
+- Public and private NLB listener ports, cross-AZ and session-persistence settings
+- RDS version, instance type, capacity, database name and additional allow list entries
+- TOS bucket name and versioning status
+- ECS and RDS passwords must be entered through the platform's sensitive-variable input and override the example defaults
 
-#### 4.1.4 部署验证
+#### 4.1.4 Deployment Verification
 
-在资源栈详情页查看部署状态为“成功”，再查看模板输出：
+On the resource stack details page, confirm that the deployment status is "Succeeded", then review the template outputs:
 
-| 输出 | 用途 |
+| Output | Purpose |
 | --- | --- |
-| `vpc_id` | 定位本次创建的 VPC |
-| `subnet_ids` | 定位全部子网 |
-| `security_group_id` | 定位 ECS 和 NLB 共用的安全组 |
-| `web_instance_ids` | Web ECS 列表；未启用计算模块时为空 |
-| `app_instance_ids` | App ECS 列表；未启用计算模块时为空 |
-| `web_instance_private_ips` | Web ECS 私网地址，用于内部连通性检查 |
-| `app_instance_private_ips` | App ECS 私网地址，用于内部连通性检查 |
-| `internet_nlb_id` | 公网 NLB 标识；未创建时为空 |
-| `intranet_nlb_id` | 私网 NLB 标识；未创建时为空 |
-| `internet_nlb_dns_name` | 公网访问入口；未创建时为空 |
-| `intranet_nlb_dns_name` | VPC 内部的 App 访问入口；未创建时为空 |
-| `rds_instance_id` | RDS 实例标识；未启用 RDS 时为空 |
-| `rds_database_name` | 业务数据库名；未启用 RDS 时为空 |
-| `tos_bucket_name` | TOS 桶名；未启用 TOS 时为空 |
+| `vpc_id` | Locate the newly created VPC |
+| `subnet_ids` | Locate all subnets |
+| `security_group_id` | Locate the security group shared by ECS and NLB |
+| `web_instance_ids` | Web ECS list; empty when the compute module is not enabled |
+| `app_instance_ids` | App ECS list; empty when the compute module is not enabled |
+| `web_instance_private_ips` | Web ECS private addresses, used for internal connectivity checks |
+| `app_instance_private_ips` | App ECS private addresses, used for internal connectivity checks |
+| `internet_nlb_id` | Public NLB ID; empty when not created |
+| `intranet_nlb_id` | Private NLB ID; empty when not created |
+| `internet_nlb_dns_name` | Public access endpoint; empty when not created |
+| `intranet_nlb_dns_name` | In-VPC app access endpoint; empty when not created |
+| `rds_instance_id` | RDS instance ID; empty when RDS is not enabled |
+| `rds_database_name` | Business database name; empty when RDS is not enabled |
+| `tos_bucket_name` | TOS bucket name; empty when TOS is not enabled |
 
-当前输出不包含密码等凭证，但资源标识和私网地址仍属于环境信息，请勿公开传播。
+The current outputs do not contain credentials such as passwords, but resource IDs and private addresses are still environment information; do not distribute them publicly.
 
-按当前 `terraform.tfvars` 完整部署时，资源栈包含 18 项 Terraform 管理资源：4 项网络资源、4 台 ECS、6 项 NLB 资源、3 项 RDS 资源和 1 个 TOS 桶。若关闭模块或调整实例、子网数量，实际资源数量会相应变化。
+With a full deployment using the current `terraform.tfvars`, the resource stack contains 18 Terraform-managed resources: 4 networking resources, 4 ECS instances, 6 NLB resources, 3 RDS resources and 1 TOS bucket. If modules are disabled or the number of instances and subnets is adjusted, the actual resource count changes accordingly.
 
-### 4.2 本地部署
+### 4.2 Local Deployment
 
-也可以下载本工程模板并在本地运行，请按照下述步骤操作。
+You can also download this project template and run it locally. Follow the steps below.
 
-#### 4.2.1 环境准备
+#### 4.2.1 Environment Preparation
 
-本工程执行前需要完成以下准备：
+Before executing this project, complete the following preparations:
 
-1. 安装 Terraform `>= 1.5.0`。
-2. 确保能够访问 Terraform Registry；Provider 版本约束为 `~> 0.0.70`。
-3. 开通火山引擎 VPC、ECS、CLB/NLB、RDS MySQL 和 TOS 服务。
-4. 在 NLB 控制台完成首次授权，创建服务关联角色 `ServiceRoleForLoadBalancer`。
-5. 准备目标地域及可用区支持的 ECS 镜像 ID。
-6. 确认目标可用区下 ECS 规格、RDS 规格和库存可用。
-7. 为执行账号准备权限，至少包含 VPC、ECS、CLB/NLB、RDS 和 TOS 的创建、查询、更新和删除权限。
+1. Install Terraform `>= 1.5.0`.
+2. Ensure access to the Terraform Registry; the provider version constraint is `~> 0.0.70`.
+3. Enable the Volcengine VPC, ECS, CLB/NLB, RDS MySQL and TOS services.
+4. Complete the first-time authorization in the NLB console and create the service-linked role `ServiceRoleForLoadBalancer`.
+5. Prepare an ECS image ID available in the target region and AZs.
+6. Confirm that ECS instance types, RDS instance types and inventory are available in the target AZs.
+7. Prepare permissions for the execution account, including at least create, read, update and delete permissions for VPC, ECS, CLB/NLB, RDS and TOS.
 
-推荐使用环境变量注入访问凭证：
+It is recommended to inject access credentials through environment variables:
 
 ```bash
 export VOLCENGINE_ACCESS_KEY="your_access_key"
@@ -303,56 +303,56 @@ export VOLCENGINE_SECRET_KEY="your_secret_key"
 export VOLCENGINE_REGION="cn-beijing"
 ```
 
-敏感变量不要写入 `terraform.tfvars`，建议通过环境变量注入：
+Do not write sensitive variables into `terraform.tfvars`; inject them through environment variables:
 
 ```bash
 export TF_VAR_ecs_password="<placeholder>"
 export TF_VAR_rds_super_account_password="<placeholder>"
 ```
 
-当前示例参数如下。未在 `terraform.tfvars` 中显式填写的参数沿用变量默认值。
+The current example parameters are as follows. Parameters not explicitly set in `terraform.tfvars` use their variable defaults.
 
-| 参数 | 当前示例值/默认值 | 说明 |
+| Parameter | Current example value / default | Description |
 | --- | --- | --- |
-| `region` | `cn-beijing` | 部署地域 |
-| `project_name` | `default` | 资源所属项目 |
-| `name_prefix` | `tf-clb` | 资源名称前缀 |
-| `common_tags` | `Project`、`Environment`、`ManagedBy` | 注入到支持标签的资源 |
-| `vpc_cidr` | `10.1.0.0/16` | VPC 网段 |
-| `availability_zones` | `cn-beijing-a`、`cn-beijing-b` | 可用区列表 |
-| `subnet_cidrs` | `10.1.2.0/24`、`10.1.3.0/24` | 子网网段，数量需与可用区一致 |
-| `enable_compute` | `true` | 是否创建 Web 和 App ECS |
-| `image_id` | 示例公共镜像 ID | 必须替换为目标地域可用镜像 |
-| `instance_type` | `ecs.g3i.large` | ECS 规格 |
-| `system_volume_type` | `ESSD_PL0` | ECS 系统盘类型 |
-| `system_volume_size_gb` | `50` | ECS 系统盘容量，单位 GB |
-| `ecs_password` | 敏感，必须覆盖 | ECS 登录密码 |
-| `web_instance_count` | `2` | Web ECS 数量 |
-| `app_instance_count` | `2` | App ECS 数量 |
-| `web_server_port` | `80` | Web 后端服务端口 |
-| `app_server_port` | `80` | App 后端服务端口 |
-| `enable_load_balancer` | `true` | 是否创建 NLB；同时要求 `enable_compute = true` |
-| `internet_listener_port` | `80` | 公网 NLB 监听端口 |
-| `intranet_listener_port` | `8080` | 私网 NLB 监听端口 |
-| `nlb_cross_zone_enabled` | `true` | 是否开启跨可用区转发 |
-| `nlb_session_persistence_enabled` | `true` | 是否按源 IP 开启会话保持 |
-| `enable_rds` | `true` | 是否创建 RDS |
-| `rds_db_engine_version` | `MySQL_5_7` | RDS MySQL 版本 |
-| `rds_node_spec` | `rds.mysql.1c2g` | RDS 节点规格 |
-| `rds_storage_type` | `LocalSSD` | RDS 存储类型 |
-| `rds_storage_space_gb` | `100` | RDS 存储容量，单位 GB |
-| `rds_super_account_name` | `tf_super` | RDS 高权限账号名 |
-| `rds_super_account_password` | 敏感，必须覆盖 | RDS 高权限账号密码 |
-| `rds_database_name` | `tf_db` | 业务数据库名 |
-| `rds_character_set` | `utf8mb4` | 数据库字符集 |
-| `rds_allow_list_cidrs` | `[]` | 额外白名单；VPC 网段会自动加入 |
-| `enable_tos` | `true` | 是否创建 TOS 桶 |
-| `tos_bucket_name` | 空 | 桶名；留空时按名称前缀和计划日期生成 |
-| `tos_enable_version_status` | `Enabled` | TOS 版本控制状态 |
+| `region` | `cn-beijing` | Deployment region |
+| `project_name` | `default` | Project to which resources belong |
+| `name_prefix` | `tf-clb` | Resource name prefix |
+| `common_tags` | `Project`, `Environment`, `ManagedBy` | Injected into resources that support tags |
+| `vpc_cidr` | `10.1.0.0/16` | VPC CIDR block |
+| `availability_zones` | `cn-beijing-a`, `cn-beijing-b` | AZ list |
+| `subnet_cidrs` | `10.1.2.0/24`, `10.1.3.0/24` | Subnet CIDR blocks; count must match AZs |
+| `enable_compute` | `true` | Whether to create web and app ECS |
+| `image_id` | Example public image ID | Must be replaced with an image available in the target region |
+| `instance_type` | `ecs.g3i.large` | ECS instance type |
+| `system_volume_type` | `ESSD_PL0` | ECS system volume type |
+| `system_volume_size_gb` | `50` | ECS system volume size in GB |
+| `ecs_password` | Sensitive; must be overridden | ECS login password |
+| `web_instance_count` | `2` | Number of web ECS instances |
+| `app_instance_count` | `2` | Number of app ECS instances |
+| `web_server_port` | `80` | Web backend service port |
+| `app_server_port` | `80` | App backend service port |
+| `enable_load_balancer` | `true` | Whether to create NLB; also requires `enable_compute = true` |
+| `internet_listener_port` | `80` | Public NLB listener port |
+| `intranet_listener_port` | `8080` | Private NLB listener port |
+| `nlb_cross_zone_enabled` | `true` | Whether to enable cross-AZ forwarding |
+| `nlb_session_persistence_enabled` | `true` | Whether to enable source-IP session persistence |
+| `enable_rds` | `true` | Whether to create RDS |
+| `rds_db_engine_version` | `MySQL_5_7` | RDS MySQL version |
+| `rds_node_spec` | `rds.mysql.1c2g` | RDS node instance type |
+| `rds_storage_type` | `LocalSSD` | RDS storage type |
+| `rds_storage_space_gb` | `100` | RDS storage capacity in GB |
+| `rds_super_account_name` | `tf_super` | RDS privileged account name |
+| `rds_super_account_password` | Sensitive; must be overridden | RDS privileged account password |
+| `rds_database_name` | `tf_db` | Business database name |
+| `rds_character_set` | `utf8mb4` | Database character set |
+| `rds_allow_list_cidrs` | `[]` | Additional allow list entries; the VPC CIDR is added automatically |
+| `enable_tos` | `true` | Whether to create a TOS bucket |
+| `tos_bucket_name` | Empty | Bucket name; when empty, generated from the name prefix and plan date |
+| `tos_enable_version_status` | `Enabled` | TOS versioning status |
 
-#### 4.2.2 场景化部署示例
+#### 4.2.2 Scenario-Based Deployment Examples
 
-初始化与校验：
+Initialize and validate:
 
 ```bash
 terraform init
@@ -361,88 +361,88 @@ terraform validate
 terraform plan
 ```
 
-**全量部署：**
+**Full deployment:**
 
-适用于权限、余额和服务开通均满足要求的账号，会创建网络、ECS、NLB、RDS 和 TOS；当前示例共 18 项资源。
+Suitable for accounts that meet the permission, balance and service-enablement requirements. Creates networking, ECS, NLB, RDS and TOS; the current example creates 18 resources in total.
 
 ```bash
 terraform plan -var-file=terraform.tfvars -out=tfplan
 terraform apply tfplan
 ```
 
-**仅部署网络底座：**
+**Deploy only the network foundation:**
 
-适用于先验证 VPC、子网和安全组权限的场景；当前示例共 4 项资源。
+Suitable for first validating VPC, subnet and security-group permissions; the current example creates 4 resources in total.
 
 ```bash
 terraform plan -var-file=examples/network-only.tfvars.example -out=tfplan
 terraform apply tfplan
 ```
 
-**部署网络与计算资源：**
+**Deploy networking and compute resources:**
 
-适用于暂不创建 RDS 和 TOS，验证网络、ECS 与 NLB 的场景；当前示例共 14 项资源。
+Suitable for scenarios that do not yet create RDS and TOS, validating networking, ECS and NLB; the current example creates 14 resources in total.
 
 ```bash
 terraform plan -var-file=examples/compute-only.tfvars.example -out=tfplan
 terraform apply tfplan
 ```
 
-关闭功能开关会在下一次执行时删除该模块已管理的资源，并非仅暂停服务。`enable_compute = false` 时，NLB 也不会创建。ECS 的规格、密码、镜像、主网卡和系统盘配置被生命周期规则忽略，修改这些参数不会自动更新已有实例，应先评估替换或人工变更方案。
+Turning off a feature switch deletes the resources managed by that module on the next apply; it does not merely pause the service. When `enable_compute = false`, NLB is also not created. The ECS instance type, password, image, primary network interface and system volume configuration are ignored by lifecycle rules; modifying these parameters does not automatically update existing instances, so you should first evaluate replacement or manual-change options.
 
-#### 4.2.3 部署预期结果
+#### 4.2.3 Expected Deployment Result
 
-按当前 `terraform.tfvars` 完整部署后，预期得到：
+After a full deployment using the current `terraform.tfvars`, the expected result is:
 
-| 模块 | 预期资源 |
+| Module | Expected resources |
 | --- | --- |
-| 网络 | 1 个 VPC、2 个子网、1 个安全组 |
-| 计算 | 2 台 Web ECS、2 台 App ECS |
-| 负载均衡 | 1 个公网 NLB、1 个私网 NLB、2 个服务器组、2 个监听器 |
-| 数据库 | 1 个双节点 RDS MySQL 实例、1 个白名单、1 个业务数据库 |
-| 存储 | 1 个 TOS 桶 |
+| Network | 1 VPC, 2 subnets, 1 security group |
+| Compute | 2 web ECS, 2 app ECS |
+| Load balancing | 1 public NLB, 1 private NLB, 2 server groups, 2 listeners |
+| Database | 1 two-node RDS MySQL instance, 1 allow list, 1 business database |
+| Storage | 1 TOS bucket |
 
-可通过以下命令查看 Terraform 输出：
+You can view Terraform outputs with:
 
 ```bash
 terraform output
 ```
 
-常用输出包括：
+Common outputs include:
 
-| 输出 | 说明 |
+| Output | Description |
 | --- | --- |
 | `vpc_id` | VPC ID |
-| `subnet_ids` | 子网 ID 列表 |
-| `security_group_id` | 安全组 ID |
-| `web_instance_ids` | Web ECS ID 列表；未启用时为空 |
-| `app_instance_ids` | App ECS ID 列表；未启用时为空 |
-| `web_instance_private_ips` | Web ECS 私网地址列表 |
-| `app_instance_private_ips` | App ECS 私网地址列表 |
-| `internet_nlb_id` | 公网 NLB ID；未启用时为空 |
-| `intranet_nlb_id` | 私网 NLB ID；未启用时为空 |
-| `internet_nlb_dns_name` | 公网 NLB DNS；未启用时为空 |
-| `intranet_nlb_dns_name` | 私网 NLB DNS；未启用时为空 |
-| `rds_instance_id` | RDS 实例 ID；未启用时为空 |
-| `rds_database_name` | 业务数据库名；未启用时为空 |
-| `tos_bucket_name` | TOS 桶名；未启用时为空 |
+| `subnet_ids` | Subnet ID list |
+| `security_group_id` | Security group ID |
+| `web_instance_ids` | Web ECS ID list; empty when not enabled |
+| `app_instance_ids` | App ECS ID list; empty when not enabled |
+| `web_instance_private_ips` | Web ECS private address list |
+| `app_instance_private_ips` | App ECS private address list |
+| `internet_nlb_id` | Public NLB ID; empty when not enabled |
+| `intranet_nlb_id` | Private NLB ID; empty when not enabled |
+| `internet_nlb_dns_name` | Public NLB DNS name; empty when not enabled |
+| `intranet_nlb_dns_name` | Private NLB DNS name; empty when not enabled |
+| `rds_instance_id` | RDS instance ID; empty when not enabled |
+| `rds_database_name` | Business database name; empty when not enabled |
+| `tos_bucket_name` | TOS bucket name; empty when not enabled |
 
-以下名称是子模块内部输出，仅用于模块编排或二次开发，不会直接显示为根模块输出：
+The following names are internal submodule outputs, used only for module orchestration or further customization; they are not directly exposed as root module outputs:
 
-| 子模块内部输出 | 说明 |
+| Internal submodule output | Description |
 | --- | --- |
-| `vpc_cidr`、`subnet_zone_ids` | 网络模块的 VPC 网段和子网可用区 |
-| `web_server_group_id`、`app_server_group_id` | NLB 的 Web 和 App 服务器组标识 |
-| `rds_engine_version`、`database_name`、`super_account_name` | RDS 引擎、数据库和账号信息 |
-| `bucket_id`、`bucket_name`、`intranet_endpoint`、`extranet_endpoint` | TOS 桶标识、名称及访问端点 |
+| `vpc_cidr`, `subnet_zone_ids` | Network module VPC CIDR block and subnet AZs |
+| `web_server_group_id`, `app_server_group_id` | NLB web and app server group IDs |
+| `rds_engine_version`, `database_name`, `super_account_name` | RDS engine, database and account information |
+| `bucket_id`, `bucket_name`, `intranet_endpoint`, `extranet_endpoint` | TOS bucket ID, name and access endpoints |
 
-#### 4.2.4 部署后简易验证
+#### 4.2.4 Post-Deployment Quick Verification
 
-以下步骤用于验证公网 NLB → Web ECS → 私网 NLB → App ECS → RDS/TOS 整条业务链路。执行前请确认 `enable_compute`、`enable_load_balancer`、`enable_rds` 和 `enable_tos` 均为 `true`，并已完成 `terraform apply`。
+The following steps verify the entire business path: public NLB → web ECS → private NLB → app ECS → RDS/TOS. Before executing, confirm that `enable_compute`, `enable_load_balancer`, `enable_rds` and `enable_tos` are all `true`, and that `terraform apply` has been completed.
 
-1. **核对实例状态**
+1. **Check instance status**
 
-   查看已启用资源，ECS、NLB、RDS 和数据库应处于可用状态。登录 Web ECS 和 App ECS，执行以下命令在 ECS 上临时启动 HTTP 服务：
+   Inspect the enabled resources; ECS, NLB, RDS and the database should be available. Log in to the web ECS and app ECS, and run the following commands to temporarily start an HTTP service on the ECS:
 
    ```bash
    SERVICE_PORT=80
@@ -451,18 +451,18 @@ terraform output
      >/tmp/terraform-http-server.log 2>&1 &
    ```
 
-   在每台实例上进行本机检查，预期返回 `hello from <instance_name> <instance_ip>`：
+   On each instance, run a local check; the expected response is `hello from <instance_name> <instance_ip>`:
 
    ```bash
    curl http://127.0.0.1:80/
    ```
 
-2. **检查公网 NLB 到 Web**
+2. **Check public NLB to web**
 
-   部署 Web 服务后，确认公网 NLB 的监听器绑定 Web 服务器组且后端健康，再访问 `internet_nlb_dns_name` 对应的公网入口。在能够访问互联网的本地电脑终端执行以下命令：
+   After deploying the web service, confirm that the public NLB listener is bound to the web server group and that the backend is healthy, then access the public endpoint corresponding to `internet_nlb_dns_name`. Run the following commands on a local machine with internet access:
 
    ```bash
-   PUBLIC_NLB_DNS="<terraform output 返回的公网 NLB 域名>"
+   PUBLIC_NLB_DNS="<public NLB DNS name from terraform output>"
    PUBLIC_NLB_PORT=80
 
    for i in $(seq 1 10); do
@@ -471,14 +471,14 @@ terraform output
    done
    ```
 
-   预期会输出 10 次 Web ECS 的页面。相同内容连续出现属于正常现象，因为默认开启源 IP 会话保持（`session_persistence_enabled = true`）。验证跨 AZ 轮询时，需要临时关闭会话保持。
+   The output should print the web ECS page 10 times. Consecutive identical content is normal because source-IP session persistence is enabled by default (`session_persistence_enabled = true`). To verify cross-AZ round-robin, temporarily disable session persistence.
 
-3. **检查 Web 到 App**
+3. **Check web to app**
 
-   部署 App 服务后，从 Web ECS 访问 `intranet_nlb_dns_name` 和私网监听端口。执行下述命令，预期返回 `hello from <instance_name> <instance_ip>`。
+   After deploying the app service, access `intranet_nlb_dns_name` and the private listener port from the web ECS. Run the following commands; the expected response is `hello from <instance_name> <instance_ip>`.
 
    ```bash
-   PRIVATE_NLB_DNS="<terraform output 返回的私网 NLB 域名>"
+   PRIVATE_NLB_DNS="<private NLB DNS name from terraform output>"
    PRIVATE_NLB_PORT=8080
 
    for i in $(seq 1 10); do
@@ -487,23 +487,23 @@ terraform output
    done
    ```
 
-4. **检查 App 到 RDS**
+4. **Check app to RDS**
 
-   确认实例、业务数据库和白名单可用后，在 RDS MySQL 控制台依次进入 **实例详情 > 连接管理 > 终端列表**，获取私网 Endpoint。在任意一台 App ECS 上安装 MySQL 客户端并连接数据库，再使用私网连接地址完成一条测试数据的写入。
+   After confirming that the instance, business database and allow list are available, in the RDS MySQL console go to **Instance Details > Connection Management > Endpoint List** to obtain the private endpoint. On any app ECS, install the MySQL client and connect to the database, then use the private connection address to write a test row.
 
    ```bash
    sudo apt-get update
    sudo apt-get install -y mysql-client
 
    mysql \
-     --host="<RDS 私网 Endpoint>" \
+     --host="<RDS private endpoint>" \
      --port=3306 \
      --user="<rds_super_account_name>" \
      --password \
      "<rds_database_name>"
    ```
 
-   出现提示时输入 `TF_VAR_rds_super_account_password` 对应的密码，不要把密码直接写入命令或提交到变量文件。连接成功后，可执行以下测试 SQL 语句。预期数据插入成功并返回 1 行数据：
+   When prompted, enter the password corresponding to `TF_VAR_rds_super_account_password`; do not write the password directly into the command or commit it to a variable file. After connecting successfully, you can run the following test SQL. The insert should succeed and return 1 row:
 
    ```sql
    SELECT VERSION();
@@ -518,40 +518,40 @@ terraform output
    DROP TABLE terraform_verify;
    ```
 
-5. **检查 App 到 TOS**
+5. **Check app to TOS**
 
-   当前模板不会为 ECS 配置 TOS 访问身份。请先为 App 准备目标桶的最小权限身份，再从 App ECS 上传、下载并删除一个不含敏感信息的测试对象。
+   The current template does not configure a TOS access identity for ECS. First prepare a least-privilege identity for the target bucket for the app, then upload, download and delete a non-sensitive test object from the app ECS.
 
-#### 4.2.5 销毁资源
+#### 4.2.5 Destroy Resources
 
-销毁前请确认业务数据已备份，TOS 桶中对象已清空。
+Before destroying, confirm that business data has been backed up and that objects in the TOS bucket have been cleared.
 
 ```bash
 terraform plan -destroy
 terraform destroy
 ```
 
-注意事项：
+Notes:
 
-- NLB 默认启用控制台删除保护，如销毁失败，需要先在控制台关闭删除保护。
-- TOS 桶如果已有对象、历史版本或删除标记，需要先清空后再销毁。
-- RDS 白名单解绑可能异步生效，如删除报占用，请等待控制台状态稳定后再重试。
-- ECS 系统盘设置为随实例删除；销毁前请先备份业务数据。
-- 销毁会删除 Terraform 管理的全部资源，请勿在生产环境误执行。
+- NLB has delete protection enabled by default in the console; if destruction fails, disable delete protection in the console first.
+- If the TOS bucket already contains objects, historical versions or delete markers, clear it before destroying.
+- RDS allow list detachment may take effect asynchronously; if deletion reports an "in use" error, wait for the console state to stabilize before retrying.
+- The ECS system volume is set to delete with the instance; back up business data before destroying.
+- Destruction deletes all Terraform-managed resources; never run it unintentionally in production.
 
-## 5. 总结
+## 5. Summary
 
-本方案的主要优势：
+The main advantages of this solution:
 
-- **标准化交付**：通过 Terraform 统一创建网络、计算、负载均衡、数据库和存储资源。
-- **高可用设计**：ECS、子网、NLB 和 RDS 采用跨可用区部署思路，降低单可用区故障影响。
-- **模块化复用**：按 `network`、`compute`、`load_balancer`、`database`、`storage` 拆分模块，便于按需组合。
-- **边界清晰**：RDS 白名单默认包含 VPC 网段；ECS 密码和 RDS 密码通过敏感变量传入。
-- **场景化部署**：通过 `enable_*` 开关支持全量部署、网络验证、计算验证和受限账号降级部署。
+- **Standardized delivery**: Provisions networking, compute, load balancing, database and storage resources consistently through Terraform.
+- **High-availability design**: ECS, subnets, NLB and RDS adopt a cross-AZ deployment approach, reducing the impact of a single-AZ failure.
+- **Modular reuse**: Modules are split into `network`, `compute`, `load_balancer`, `database` and `storage` for on-demand composition.
+- **Clear boundaries**: The RDS allow list includes the VPC CIDR by default; ECS and RDS passwords are passed in through sensitive variables.
+- **Scenario-based deployment**: The `enable_*` switches support full deployment, network validation, compute validation and degraded deployment for restricted accounts.
 
-未来可继续扩展：
+Future extensions:
 
-- 增加 Redis、消息队列等中间件模块，支撑更复杂的应用架构。
-- 接入 CDN、WAF、TLS 证书和域名解析，完善公网访问链路。
-- 增加日志、监控、告警和自动伸缩能力，提升运维可观测性。
-- 接入远端 Backend 管理 Terraform State，支持团队协作和 CI/CD 流水线。
+- Add middleware modules such as Redis and message queues to support more complex application architectures.
+- Integrate CDN, WAF, TLS certificates and DNS resolution to complete the public access path.
+- Add logging, monitoring, alerting and auto-scaling to improve operational observability.
+- Integrate a remote backend to manage Terraform state, supporting team collaboration and CI/CD pipelines.
